@@ -1,0 +1,32 @@
+{
+  "name": "Official Covalt Provider Plugins",
+  "version": "1.0.0",
+  "sources": [
+    {
+      "id": "sample-openai-adapter",
+      "pluginId": "sample_openai_adapter",
+      "name": "Sample OpenAI Adapter Provider",
+      "version": "0.1.0",
+      "provider": "sample_openai_adapter",
+      "description": "Template plugin using adapter-based provider manifest.",
+      "icon": "openai",
+      "sourceClass": "official",
+      "repoUrl": "https://github.com/sethburkart123/covalt-provider-plugins",
+      "trackingRef": "main",
+      "pluginPath": "plugins/sample-openai-adapter"
+    },
+    {
+      "id": "sample-code-provider",
+      "pluginId": "sample_code_provider",
+      "name": "Sample Code Provider",
+      "version": "0.1.0",
+      "provider": "sample_code_provider",
+      "description": "Template plugin with custom Python provider factory entrypoint.",
+      "icon": "openai",
+      "sourceClass": "official",
+      "repoUrl": "https://github.com/sethburkart123/covalt-provider-plugins",
+      "trackingRef": "main",
+      "pluginPath": "plugins/sample-code-provider"
+    }
+  ]
+}
