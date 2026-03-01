@@ -3,30 +3,30 @@
   "version": "1.0.0",
   "sources": [
     {
-      "id": "sample-openai-adapter",
-      "pluginId": "sample_openai_adapter",
-      "name": "Sample OpenAI Adapter Provider",
+      "id": "claude-oauth",
+      "pluginId": "anthropic_oauth",
+      "name": "Claude OAuth",
       "version": "0.1.0",
-      "provider": "sample_openai_adapter",
-      "description": "Template plugin using adapter-based provider manifest.",
-      "icon": "openai",
+      "provider": "anthropic_oauth",
+      "description": "Claude Pro/Max via OAuth sign-in",
+      "icon": "anthropic",
       "sourceClass": "official",
       "repoUrl": "https://github.com/sethburkart123/covalt-provider-plugins",
       "trackingRef": "main",
-      "pluginPath": "plugins/sample-openai-adapter"
+      "pluginPath": "plugins/claude-oauth"
     },
     {
-      "id": "sample-code-provider",
-      "pluginId": "sample_code_provider",
-      "name": "Sample Code Provider",
+      "id": "gemini-cli-oauth",
+      "pluginId": "google_gemini_cli",
+      "name": "Gemini CLI OAuth",
       "version": "0.1.0",
-      "provider": "sample_code_provider",
-      "description": "Template plugin with custom Python provider factory entrypoint.",
-      "icon": "openai",
+      "provider": "google_gemini_cli",
+      "description": "Cloud Code Assist Gemini models via OAuth",
+      "icon": "google-gemini-cli",
       "sourceClass": "official",
       "repoUrl": "https://github.com/sethburkart123/covalt-provider-plugins",
       "trackingRef": "main",
-      "pluginPath": "plugins/sample-code-provider"
+      "pluginPath": "plugins/gemini-cli-oauth"
     }
   ]
 }
