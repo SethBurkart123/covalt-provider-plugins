@@ -1,12 +1,12 @@
 {
   "name": "Official Covalt Provider Plugins",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "sources": [
     {
       "id": "claude-oauth",
       "pluginId": "anthropic_oauth",
       "name": "Claude OAuth",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "provider": "anthropic_oauth",
       "description": "Claude Pro/Max via OAuth sign-in",
       "icon": "anthropic",
@@ -19,7 +19,7 @@
       "id": "gemini-cli-oauth",
       "pluginId": "google_gemini_cli",
       "name": "Gemini CLI OAuth",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "provider": "google_gemini_cli",
       "description": "Cloud Code Assist Gemini models via OAuth",
       "icon": "google-gemini-cli",

@@ -1,7 +1,7 @@
 manifest_version: '1'
 id: anthropic_oauth
 name: Claude OAuth
-version: 0.1.0
+version: 0.1.1
 provider: anthropic_oauth
 entrypoint: plugin:create_provider
 aliases:
@@ -11,3 +11,17 @@ icon: anthropic
 auth_type: oauth
 default_enabled: false
 oauth_variant: inline-code
+llm:
+  dialect: anthropic-messages
+  base_url: https://api.anthropic.com
+  headers:
+    anthropic-version: '2023-06-01'
+    anthropic-beta: claude-code-20250219,oauth-2025-04-20,fine-grained-tool-streaming-2025-05-14,interleaved-thinking-2025-05-14
+    content-type: application/json
+    accept: application/json
+    user-agent: claude-cli/2.1.2 (external, cli)
+    x-app: cli
+request:
+  system_prepend:
+    - type: text
+      text: You are Claude Code, Anthropic's official CLI for Claude.
