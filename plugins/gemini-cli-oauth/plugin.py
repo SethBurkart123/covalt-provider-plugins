@@ -81,6 +81,7 @@ def resolve_agent_stream_config(
             pass
 
     return {
+        "providerId": "google_gemini_cli",
         "model": model_id,
         "provider": {
             "dialect": llm["dialect"],

@@ -1,9 +1,13 @@
 manifest_version: '1'
 id: google_gemini_cli
 name: Gemini CLI OAuth
-version: 0.1.1
+version: 0.1.2
 provider: google_gemini_cli
 entrypoint: plugin:create_provider
+provides:
+  - api: provider
+    version: '1'
+    entry: api/provider.py
 aliases:
   - google-gemini-cli
 description: Cloud Code Assist Gemini models via OAuth

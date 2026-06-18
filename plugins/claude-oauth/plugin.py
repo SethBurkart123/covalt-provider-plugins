@@ -15,6 +15,8 @@ from backend.providers.oauth_plugin_entry import (
 )
 from backend.providers.options import resolve_common_options
 
+from .api.provider import supports_adaptive_reasoning, supports_reasoning
+
 ANTHROPIC_VERSION = "2023-06-01"
 ANTHROPIC_OAUTH_BETA = (
     "claude-code-20250219,oauth-2025-04-20,"
@@ -22,15 +24,6 @@ ANTHROPIC_OAUTH_BETA = (
 )
 CLAUDE_CODE_SYSTEM = "You are Claude Code, Anthropic's official CLI for Claude."
 logger = logging.getLogger(__name__)
-
-REASONING_BUDGETS = {
-    "minimal": 1024,
-    "low": 2048,
-    "medium": 8192,
-    "high": 16384,
-    "max": 32000,
-    "xhigh": 32000,
-}
 
 
 def _oauth_manager():
@@ -63,67 +56,15 @@ def _normalize_reasoning_effort(value: Any) -> str | None:
     return None
 
 
-def _supports_reasoning(model_id: str) -> bool:
-    model = model_id.lower()
-    return (
-        "claude-3-7" in model
-        or bool(re.search(r"claude-(haiku|sonnet|opus)-4([.\-]|$)", model))
-        or bool(re.search(r"claude-opus-4\.\d+", model))
-    )
-
-
-def _supports_adaptive_reasoning(model_id: str) -> bool:
-    model = model_id.lower()
-    return "opus-4-6" in model or "opus-4.6" in model
-
-
-def _map_effort_to_anthropic(effort: str) -> str:
-    if effort == "max":
-        return "max"
-    if effort in {"minimal", "low"}:
-        return "low"
-    if effort == "medium":
-        return "medium"
-    return "high"
-
-
-def _coerce_positive_int(value: Any, *, default: int) -> int:
-    try:
-        parsed = int(value)
-    except (TypeError, ValueError):
-        return default
-    return parsed if parsed > 0 else default
-
-
 def resolve_options(
     model_id: str,
     model_options: dict[str, Any] | None,
     node_params: dict[str, Any] | None,
 ) -> dict[str, Any]:
-    options = model_options or {}
     resolved = resolve_common_options(model_options, node_params)
-
-    effort = _normalize_reasoning_effort(options.get("reasoning_effort"))
-    if effort in {None, "none", "auto"}:
-        return resolved
-    if not _supports_reasoning(model_id):
-        return resolved
-
-    if _supports_adaptive_reasoning(model_id):
-        resolved["request_params"] = {
-            "thinking": {"type": "adaptive"},
-            "output_config": {"effort": _map_effort_to_anthropic(effort)},
-        }
-        return resolved
-
-    fallback_budget = REASONING_BUDGETS.get(effort, REASONING_BUDGETS["medium"])
-    budget = _coerce_positive_int(options.get("thinking_budget"), default=fallback_budget)
-    resolved["request_params"] = {
-        "thinking": {
-            "type": "enabled",
-            "budget_tokens": budget,
-        }
-    }
+    effort = _normalize_reasoning_effort((model_options or {}).get("reasoning_effort"))
+    if effort and effort not in {"none", "auto"} and supports_reasoning(model_id):
+        resolved["reasoning_effort"] = effort
     return resolved
 
 
@@ -156,10 +97,10 @@ def _parse_reasoning_levels(value: Any) -> list[dict[str, str]]:
 
 
 def _default_reasoning_levels(model_id: str) -> list[dict[str, str]]:
-    if not _supports_reasoning(model_id):
+    if not supports_reasoning(model_id):
         return []
     efforts = ["low", "medium", "high"]
-    if _supports_adaptive_reasoning(model_id):
+    if supports_adaptive_reasoning(model_id):
         efforts.append("max")
     return [{"effort": effort} for effort in efforts]
 
@@ -290,6 +231,7 @@ def resolve_agent_stream_config(
     headers = dict(llm["headers"])
     headers["Authorization"] = f"Bearer {access_token}"
     config: dict[str, Any] = {
+        "providerId": "anthropic_oauth",
         "model": model_id,
         "provider": {"dialect": llm["dialect"]},
         "baseUrl": get_base_url("anthropic_oauth") or llm["base_url"],

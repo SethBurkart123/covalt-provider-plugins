@@ -1,9 +1,13 @@
 manifest_version: '1'
 id: anthropic_oauth
 name: Claude OAuth
-version: 0.1.1
+version: 0.1.2
 provider: anthropic_oauth
 entrypoint: plugin:create_provider
+provides:
+  - api: provider
+    version: '1'
+    entry: api/provider.py
 aliases:
   - anthropic-oauth
 description: Claude Pro/Max via OAuth sign-in
