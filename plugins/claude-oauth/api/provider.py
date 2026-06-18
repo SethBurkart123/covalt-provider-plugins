@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from covalt.provider_sdk import PluginCapabilities, ProviderPlugin
+
 REASONING_BUDGETS = {
     "minimal": 1024,
     "low": 2048,
@@ -11,23 +13,6 @@ REASONING_BUDGETS = {
     "max": 32000,
     "xhigh": 32000,
 }
-
-
-def capabilities() -> dict[str, bool]:
-    return {"oauth": False, "prepare": True, "stream": False}
-
-
-def _normalize_reasoning_effort(value: Any) -> str | None:
-    if not isinstance(value, str):
-        return None
-    normalized = value.strip().lower()
-    if normalized in {"none", "off"}:
-        return "none"
-    if normalized == "xhigh":
-        return "max"
-    if normalized in {"auto", "minimal", "low", "medium", "high", "max"}:
-        return normalized
-    return None
 
 
 def supports_reasoning(model_id: str) -> bool:
@@ -42,6 +27,19 @@ def supports_reasoning(model_id: str) -> bool:
 def supports_adaptive_reasoning(model_id: str) -> bool:
     model = model_id.lower()
     return "opus-4-6" in model or "opus-4.6" in model
+
+
+def _normalize_reasoning_effort(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    normalized = value.strip().lower()
+    if normalized in {"none", "off"}:
+        return "none"
+    if normalized == "xhigh":
+        return "max"
+    if normalized in {"auto", "minimal", "low", "medium", "high", "max"}:
+        return normalized
+    return None
 
 
 def _map_effort_to_anthropic(effort: str) -> str:
@@ -87,7 +85,7 @@ def _thinking_budget_from_request(req: dict[str, Any], effort: str) -> int:
     return REASONING_BUDGETS.get(effort, REASONING_BUDGETS["medium"])
 
 
-def prepare(req: dict[str, Any]) -> dict[str, Any]:
+def _prepare(req: dict[str, Any]) -> dict[str, Any]:
     model_id = str(req.get("model") or "")
     effort = _reasoning_effort_from_request(req)
     if effort in {None, "none", "auto"} or not supports_reasoning(model_id):
@@ -106,3 +104,12 @@ def prepare(req: dict[str, Any]) -> dict[str, Any]:
     budget = _thinking_budget_from_request(req, effort)
     body["thinking"] = {"type": "enabled", "budget_tokens": budget}
     return req
+
+
+PLUGIN = ProviderPlugin(
+    id="anthropic_oauth",
+    dialect="anthropic-messages",
+    base_url="https://api.anthropic.com",
+    capabilities=PluginCapabilities(prepare=True),
+    prepare=_prepare,
+)

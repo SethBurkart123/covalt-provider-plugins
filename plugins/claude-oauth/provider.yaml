@@ -1,7 +1,7 @@
 manifest_version: '1'
 id: anthropic_oauth
 name: Claude OAuth
-version: 0.1.2
+version: 0.1.3
 provider: anthropic_oauth
 entrypoint: plugin:create_provider
 provides:

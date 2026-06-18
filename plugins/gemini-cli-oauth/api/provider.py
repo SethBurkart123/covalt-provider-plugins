@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from typing import Any
+from covalt.provider_sdk import PluginCapabilities, ProviderPlugin
 
-
-def capabilities() -> dict[str, bool]:
-    return {"oauth": False, "prepare": True, "stream": False}
-
-
-def prepare(req: dict[str, Any]) -> dict[str, Any]:
-    return req
+PLUGIN = ProviderPlugin(
+    id="google_gemini_cli",
+    dialect="google-code-assist",
+    base_url="https://cloudcode-pa.googleapis.com",
+    capabilities=PluginCapabilities(),
+)

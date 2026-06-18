@@ -12,8 +12,9 @@ https://raw.githubusercontent.com/sethburkart123/covalt-provider-plugins/main/in
 | `claude-oauth` | `anthropic_oauth` | `anthropic-messages` |
 | `gemini-cli-oauth` | `google_gemini_cli` | `google-code-assist` |
 
-Each plugin is **yaml decl + thin Python**:
+Each plugin is **yaml decl + thin Python** (Mode A — Rust dialects stream; plugins mutate per turn):
 - `provider.yaml` — dialect, base URL, headers, OAuth variant
+- `api/provider.py` — `PLUGIN = ProviderPlugin(...)` via `covalt.provider_sdk` (`prepare` hook)
 - `plugin.py` — stream config, models, options (uses core `oauth_plugin_entry`)
 - `oauth.py` — OAuth begin/refresh only (host keeps storage + callback server)
 

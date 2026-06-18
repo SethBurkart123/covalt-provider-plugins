@@ -15,7 +15,7 @@ from backend.providers.oauth_plugin_entry import (
 )
 from backend.providers.options import resolve_common_options
 
-from .api.provider import supports_adaptive_reasoning, supports_reasoning
+from .api.provider import supports_adaptive_reasoning, supports_reasoning, _normalize_reasoning_effort
 
 ANTHROPIC_VERSION = "2023-06-01"
 ANTHROPIC_OAUTH_BETA = (
@@ -41,19 +41,6 @@ def _get_anthropic_credentials() -> dict[str, Any]:
     if not creds:
         raise RuntimeError("Anthropic OAuth not connected in Settings.")
     return creds
-
-
-def _normalize_reasoning_effort(value: Any) -> str | None:
-    if not isinstance(value, str):
-        return None
-    normalized = value.strip().lower()
-    if normalized in {"none", "off"}:
-        return "none"
-    if normalized == "xhigh":
-        return "max"
-    if normalized in {"auto", "minimal", "low", "medium", "high", "max"}:
-        return normalized
-    return None
 
 
 def resolve_options(
