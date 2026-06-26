@@ -13,19 +13,17 @@ https://raw.githubusercontent.com/sethburkart123/covalt-provider-plugins/main/in
 | `gemini-cli-oauth` | `google_gemini_cli` | `google-code-assist` |
 
 Each plugin is **yaml decl + thin Python** (Mode A — Rust dialects stream; plugins mutate per turn):
-- `provider.yaml` — dialect, base URL, headers, OAuth variant
-- `api/provider.py` — `PLUGIN = ProviderPlugin(...)` via `covalt.provider_sdk` (`prepare` hook)
-- `plugin.py` — stream config, models, options (uses core `oauth_plugin_entry`)
-- `oauth.py` — OAuth begin/refresh only (host keeps storage + callback server)
+- `provider.yaml` — dialect, base URL, headers, OAuth variant, optional `request.system_prepend`
+- `api/provider.py` — `PLUGIN = ProviderPlugin(...)` via `covalt.provider_sdk` (`oauth.*`, `prepare`)
 
 ## Structure
 
 - `index.json` — plugin store index (`sources[]` with `repoUrl`, `pluginPath`, `trackingRef`)
-- `plugins/<id>/` — one directory per plugin (`provider.yaml` + entrypoint)
+- `plugins/<id>/` — one directory per plugin (`provider.yaml` + `api/provider.py`)
 
 ## Adding a plugin
 
-1. Create `plugins/<your-plugin-id>/` with `provider.yaml` and `plugin.py`
+1. Create `plugins/<your-plugin-id>/` with `provider.yaml` and `api/provider.py`
 2. Add an entry to `index.json` `sources`
 3. Open a pull request
 
