@@ -86,15 +86,16 @@ def _coerce_positive_int(value: Any, *, default: int) -> int:
 
 def _reasoning_effort_from_request(req: dict[str, Any]) -> str | None:
     options = req.get("options")
-    if isinstance(options, dict):
-        effort = options.get("reasoningEffort")
-        if isinstance(effort, str):
-            return _normalize_reasoning_effort(effort)
-        params = options.get("requestParams")
-        if isinstance(params, dict):
-            carrier = params.get("reasoningEffort")
-            if isinstance(carrier, str):
-                return _normalize_reasoning_effort(carrier)
+    if not isinstance(options, dict):
+        return None
+    for key in ("reasoningEffort", "reasoning_effort"):
+        if isinstance(options.get(key), str):
+            return _normalize_reasoning_effort(options[key])
+    params = options.get("requestParams")
+    if isinstance(params, dict):
+        for key in ("reasoningEffort", "reasoning_effort"):
+            if isinstance(params.get(key), str):
+                return _normalize_reasoning_effort(params[key])
     return None
 
 
@@ -112,21 +113,26 @@ def _thinking_budget_from_request(req: dict[str, Any], effort: str) -> int:
 def _prepare(req: dict[str, Any]) -> dict[str, Any]:
     model_id = str(req.get("model") or "")
     effort = _reasoning_effort_from_request(req)
-    if effort in {None, "none", "auto"} or not supports_reasoning(model_id):
-        return req
+    if effort not in {None, "none", "auto"} and supports_reasoning(model_id):
+        body = req.get("body")
+        if not isinstance(body, dict):
+            body = {}
+            req["body"] = body
+        if supports_adaptive_reasoning(model_id):
+            body["thinking"] = {"type": "adaptive"}
+            body["output_config"] = {"effort": _map_effort_to_anthropic(effort)}
+        else:
+            budget = _thinking_budget_from_request(req, effort)
+            body["thinking"] = {"type": "enabled", "budget_tokens": budget}
 
-    body = req.get("body")
-    if not isinstance(body, dict):
-        body = {}
-        req["body"] = body
-
-    if supports_adaptive_reasoning(model_id):
-        body["thinking"] = {"type": "adaptive"}
-        body["output_config"] = {"effort": _map_effort_to_anthropic(effort)}
-        return req
-
-    budget = _thinking_budget_from_request(req, effort)
-    body["thinking"] = {"type": "enabled", "budget_tokens": budget}
+    options = req.get("options")
+    if isinstance(options, dict):
+        options.pop("reasoningEffort", None)
+        options.pop("reasoning_effort", None)
+        params = options.get("requestParams")
+        if isinstance(params, dict):
+            params.pop("reasoningEffort", None)
+            params.pop("reasoning_effort", None)
     return req
 
 
