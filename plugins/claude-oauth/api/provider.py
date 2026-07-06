@@ -8,23 +8,14 @@ from typing import Any
 from urllib.parse import urlencode
 
 import httpx
-from covalt.provider import Auth, Field, Provider, Transport
+from covalt.provider import Auth, Provider, Transport
 from covalt.provider.context import ProviderContext
 
 AUTHORIZE_URL = "https://claude.ai/oauth/authorize"
 TOKEN_URL = "https://console.anthropic.com/v1/oauth/token"
 REDIRECT_URI = "https://console.anthropic.com/oauth/code/callback"
 SCOPE = "org:create_api_key user:profile user:inference"
-CLAUDE_SYSTEM = "You are Claude Code, Anthropic's official CLI for Claude."
-
-ANTHROPIC_HEADERS = {
-    "anthropic-version": "2023-06-01",
-    "anthropic-beta": "claude-code-20250219,oauth-2025-04-20,fine-grained-tool-streaming-2025-05-14,interleaved-thinking-2025-05-14",
-    "content-type": "application/json",
-    "accept": "application/json",
-    "user-agent": "claude-cli/2.1.2 (external, cli)",
-    "x-app": "cli",
-}
+SYSTEM_PREPEND = "You are Claude Code, Anthropic's official CLI for Claude."
 
 REASONING_BUDGETS = {
     "minimal": 1024,
@@ -121,17 +112,6 @@ def _thinking_budget_from_request(req: dict[str, Any], effort: str) -> int:
     return REASONING_BUDGETS.get(effort, REASONING_BUDGETS["medium"])
 
 
-def _prepend_system(body: dict[str, Any]) -> None:
-    block = {"type": "text", "text": CLAUDE_SYSTEM}
-    system = body.get("system")
-    if isinstance(system, str):
-        body["system"] = [block, {"type": "text", "text": system}]
-    elif isinstance(system, list):
-        body["system"] = [block, *system]
-    else:
-        body["system"] = [block]
-
-
 def _apply_reasoning(req: dict[str, Any]) -> dict[str, Any]:
     model_id = str(req.get("model") or "")
     effort = _reasoning_effort_from_request(req)
@@ -158,16 +138,23 @@ def _apply_reasoning(req: dict[str, Any]) -> dict[str, Any]:
     return req
 
 
-def _exchange_code(code: str, state: str, verifier: str) -> dict[str, Any]:
-    if not code or not verifier:
-        raise ValueError("Missing authorization code")
+def _prepend_system(req: dict[str, Any]) -> dict[str, Any]:
+    system_blocks = req.get("systemBlocks")
+    if not isinstance(system_blocks, list):
+        system_blocks = []
+    system_blocks.insert(0, {"type": "text", "text": SYSTEM_PREPEND})
+    req["systemBlocks"] = system_blocks
+    return req
+
+
+def _exchange_code(code: str, verifier: str) -> dict[str, Any]:
     response = httpx.post(
         TOKEN_URL,
         json={
             "grant_type": "authorization_code",
             "client_id": _decode_client_id(),
-            "code": code,
-            "state": state or verifier,
+            "code": code.strip(),
+            "state": verifier,
             "redirect_uri": REDIRECT_URI,
             "code_verifier": verifier,
         },
@@ -182,16 +169,10 @@ def _exchange_code(code: str, state: str, verifier: str) -> dict[str, Any]:
     expires_in = payload.get("expires_in")
     if not access_token or not refresh_token or not isinstance(expires_in, int):
         raise ValueError("Invalid token response")
-    return {
-        "accessToken": access_token,
-        "refreshToken": refresh_token,
-        "expiresIn": expires_in,
-    }
+    return payload
 
 
 def _refresh_tokens(refresh_token: str) -> dict[str, Any]:
-    if not refresh_token:
-        raise ValueError("Missing refresh token")
     response = httpx.post(
         TOKEN_URL,
         json={
@@ -209,11 +190,7 @@ def _refresh_tokens(refresh_token: str) -> dict[str, Any]:
     expires_in = payload.get("expires_in")
     if not access_token or not isinstance(expires_in, int):
         raise ValueError("Invalid token response")
-    return {
-        "accessToken": access_token,
-        "refreshToken": payload.get("refresh_token") or refresh_token,
-        "expiresIn": expires_in,
-    }
+    return payload
 
 
 class ClaudeOAuth(Provider):
@@ -224,17 +201,18 @@ class ClaudeOAuth(Provider):
         return Transport(
             dialect="anthropic-messages",
             base_url="https://api.anthropic.com",
-            headers=ANTHROPIC_HEADERS,
+            headers={
+                "anthropic-version": "2023-06-01",
+                "anthropic-beta": "claude-code-20250219,oauth-2025-04-20,fine-grained-tool-streaming-2025-05-14,interleaved-thinking-2025-05-14",
+                "content-type": "application/json",
+                "accept": "application/json",
+                "user-agent": "claude-cli/2.1.2 (external, cli)",
+                "x-app": "cli",
+            },
         )
 
     async def prepare(self, ctx: ProviderContext, req: dict[str, Any]) -> dict[str, Any]:
-        req = _apply_reasoning(req)
-        body = req.get("body")
-        if not isinstance(body, dict):
-            body = {}
-            req["body"] = body
-        _prepend_system(body)
-        return req
+        return _prepend_system(_apply_reasoning(dict(req)))
 
     async def login(self, ctx: ProviderContext) -> Auth:
         verifier, challenge = _pkce()
@@ -248,25 +226,24 @@ class ClaudeOAuth(Provider):
             'code_challenge_method': 'S256',
             'state': verifier,
         })}"
-        await ctx.ui.show(
-            elements=[Field.link("Sign in to Claude", auth_url, open_on_start=True)],
-            instructions="Paste the authorization code after signing in.",
-        )
-        code = (await ctx.ui.prompt("Paste the authorization code")).strip()
-        tokens = _exchange_code(code, verifier, verifier)
+        await ctx.ui.show(note="Paste the authorization code", url=auth_url)
+        code = await ctx.ui.prompt("Paste the authorization code", url=auth_url)
+        payload = _exchange_code(code, verifier)
         return Auth(
-            access=tokens["accessToken"],
-            refresh=tokens["refreshToken"],
-            expires_in=tokens["expiresIn"],
+            access=str(payload["access_token"]),
+            refresh=str(payload["refresh_token"]),
+            expires_in=int(payload["expires_in"]),
         )
 
     async def refresh(self, ctx: ProviderContext, auth: Auth) -> Auth:
-        tokens = _refresh_tokens(str(auth.refresh or ""))
+        refresh_token = (auth.refresh or "").strip()
+        if not refresh_token:
+            raise ValueError("Missing refresh token")
+        payload = _refresh_tokens(refresh_token)
         return Auth(
-            access=tokens["accessToken"],
-            refresh=tokens["refreshToken"],
-            expires_in=tokens["expiresIn"],
-            keep_fresh=auth.keep_fresh,
+            access=str(payload["access_token"]),
+            refresh=str(payload.get("refresh_token") or refresh_token),
+            expires_in=int(payload["expires_in"]),
         )
 
 
