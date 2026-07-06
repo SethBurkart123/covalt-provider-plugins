@@ -2,18 +2,29 @@ from __future__ import annotations
 
 import base64
 import hashlib
-import secrets
 import re
+import secrets
 from typing import Any
 from urllib.parse import urlencode
 
 import httpx
-from covalt.provider_sdk import PluginCapabilities, ProviderPlugin
+from covalt.provider import Auth, Field, Provider, Transport
+from covalt.provider.context import ProviderContext
 
 AUTHORIZE_URL = "https://claude.ai/oauth/authorize"
 TOKEN_URL = "https://console.anthropic.com/v1/oauth/token"
 REDIRECT_URI = "https://console.anthropic.com/oauth/code/callback"
 SCOPE = "org:create_api_key user:profile user:inference"
+CLAUDE_SYSTEM = "You are Claude Code, Anthropic's official CLI for Claude."
+
+ANTHROPIC_HEADERS = {
+    "anthropic-version": "2023-06-01",
+    "anthropic-beta": "claude-code-20250219,oauth-2025-04-20,fine-grained-tool-streaming-2025-05-14,interleaved-thinking-2025-05-14",
+    "content-type": "application/json",
+    "accept": "application/json",
+    "user-agent": "claude-cli/2.1.2 (external, cli)",
+    "x-app": "cli",
+}
 
 REASONING_BUDGETS = {
     "minimal": 1024,
@@ -110,7 +121,18 @@ def _thinking_budget_from_request(req: dict[str, Any], effort: str) -> int:
     return REASONING_BUDGETS.get(effort, REASONING_BUDGETS["medium"])
 
 
-def _prepare(req: dict[str, Any]) -> dict[str, Any]:
+def _prepend_system(body: dict[str, Any]) -> None:
+    block = {"type": "text", "text": CLAUDE_SYSTEM}
+    system = body.get("system")
+    if isinstance(system, str):
+        body["system"] = [block, {"type": "text", "text": system}]
+    elif isinstance(system, list):
+        body["system"] = [block, *system]
+    else:
+        body["system"] = [block]
+
+
+def _apply_reasoning(req: dict[str, Any]) -> dict[str, Any]:
     model_id = str(req.get("model") or "")
     effort = _reasoning_effort_from_request(req)
     if effort not in {None, "none", "auto"} and supports_reasoning(model_id):
@@ -136,35 +158,9 @@ def _prepare(req: dict[str, Any]) -> dict[str, Any]:
     return req
 
 
-def _oauth_begin(_params: dict[str, Any]) -> dict[str, Any]:
-    verifier, challenge = _pkce()
-    auth_url = f"{AUTHORIZE_URL}?{urlencode({
-        'code': 'true',
-        'client_id': _decode_client_id(),
-        'response_type': 'code',
-        'redirect_uri': REDIRECT_URI,
-        'scope': SCOPE,
-        'code_challenge': challenge,
-        'code_challenge_method': 'S256',
-        'state': verifier,
-    })}"
-    return {
-        "authUrl": auth_url,
-        "instructions": "Paste the authorization code",
-        "state": verifier,
-        "flow": {"verifier": verifier},
-    }
-
-
-def _oauth_complete(params: dict[str, Any]) -> dict[str, Any]:
-    code = str(params.get("code") or "").strip()
-    state = str(params.get("state") or "").strip()
-    flow = params.get("flow") if isinstance(params.get("flow"), dict) else {}
-    verifier = str(flow.get("verifier") or params.get("state") or "").strip()
+def _exchange_code(code: str, state: str, verifier: str) -> dict[str, Any]:
     if not code or not verifier:
         raise ValueError("Missing authorization code")
-    if state and state != verifier:
-        raise ValueError("State mismatch")
     response = httpx.post(
         TOKEN_URL,
         json={
@@ -189,13 +185,11 @@ def _oauth_complete(params: dict[str, Any]) -> dict[str, Any]:
     return {
         "accessToken": access_token,
         "refreshToken": refresh_token,
-        "tokenType": "Bearer",
         "expiresIn": expires_in,
     }
 
 
-def _oauth_refresh(params: dict[str, Any]) -> dict[str, Any]:
-    refresh_token = str(params.get("refreshToken") or params.get("refresh_token") or "").strip()
+def _refresh_tokens(refresh_token: str) -> dict[str, Any]:
     if not refresh_token:
         raise ValueError("Missing refresh token")
     response = httpx.post(
@@ -218,18 +212,62 @@ def _oauth_refresh(params: dict[str, Any]) -> dict[str, Any]:
     return {
         "accessToken": access_token,
         "refreshToken": payload.get("refresh_token") or refresh_token,
-        "tokenType": "Bearer",
         "expiresIn": expires_in,
     }
 
 
-PLUGIN = ProviderPlugin(
-    id="anthropic_oauth",
-    dialect="anthropic-messages",
-    base_url="https://api.anthropic.com",
-    capabilities=PluginCapabilities(oauth=True, prepare=True),
-    prepare=_prepare,
-    oauth_begin=_oauth_begin,
-    oauth_complete=_oauth_complete,
-    oauth_refresh=_oauth_refresh,
-)
+class ClaudeOAuth(Provider):
+    id = "anthropic_oauth"
+    name = "Claude OAuth"
+
+    def transport(self, ctx: ProviderContext, model: str) -> Transport:
+        return Transport(
+            dialect="anthropic-messages",
+            base_url="https://api.anthropic.com",
+            headers=ANTHROPIC_HEADERS,
+        )
+
+    async def prepare(self, ctx: ProviderContext, req: dict[str, Any]) -> dict[str, Any]:
+        req = _apply_reasoning(req)
+        body = req.get("body")
+        if not isinstance(body, dict):
+            body = {}
+            req["body"] = body
+        _prepend_system(body)
+        return req
+
+    async def login(self, ctx: ProviderContext) -> Auth:
+        verifier, challenge = _pkce()
+        auth_url = f"{AUTHORIZE_URL}?{urlencode({
+            'code': 'true',
+            'client_id': _decode_client_id(),
+            'response_type': 'code',
+            'redirect_uri': REDIRECT_URI,
+            'scope': SCOPE,
+            'code_challenge': challenge,
+            'code_challenge_method': 'S256',
+            'state': verifier,
+        })}"
+        await ctx.ui.show(
+            elements=[Field.link("Sign in to Claude", auth_url, open_on_start=True)],
+            instructions="Paste the authorization code after signing in.",
+        )
+        code = (await ctx.ui.prompt("Paste the authorization code")).strip()
+        tokens = _exchange_code(code, verifier, verifier)
+        return Auth(
+            access=tokens["accessToken"],
+            refresh=tokens["refreshToken"],
+            expires_in=tokens["expiresIn"],
+        )
+
+    async def refresh(self, ctx: ProviderContext, auth: Auth) -> Auth:
+        tokens = _refresh_tokens(str(auth.refresh or ""))
+        return Auth(
+            access=tokens["accessToken"],
+            refresh=tokens["refreshToken"],
+            expires_in=tokens["expiresIn"],
+            keep_fresh=auth.keep_fresh,
+        )
+
+
+PLUGIN = ClaudeOAuth()
