@@ -21,6 +21,20 @@ CALLBACK_PORT = 8085
 _ENV_CLIENT_ID = "GEMINI_CLI_OAUTH_CLIENT_ID"
 _ENV_CLIENT_SECRET = "GEMINI_CLI_OAUTH_CLIENT_SECRET"
 
+_GEMINI_HEADERS = {
+    "content-type": "application/json",
+    "accept": "text/event-stream",
+    "user-agent": "google-cloud-sdk vscode_cloudshelleditor/0.1",
+    "x-goog-api-client": "gl-node/22.17.0",
+    "client-metadata": json.dumps(
+        {
+            "ideType": "IDE_UNSPECIFIED",
+            "platform": "PLATFORM_UNSPECIFIED",
+            "pluginType": "GEMINI",
+        }
+    ),
+}
+
 
 def _client_credentials() -> tuple[str, str]:
     client_id = os.environ.get(_ENV_CLIENT_ID, "").strip()
@@ -192,24 +206,20 @@ class GeminiCliOAuth(Provider):
     id = "google_gemini_cli"
     name = "Gemini CLI OAuth"
 
-    def transport(self, ctx: ProviderContext, model: str) -> Transport:
-        return Transport(
-            dialect="google-code-assist",
-            base_url=DEFAULT_ENDPOINT,
-            headers={
-                "content-type": "application/json",
-                "accept": "text/event-stream",
-                "user-agent": "google-cloud-sdk vscode_cloudshelleditor/0.1",
-                "x-goog-api-client": "gl-node/22.17.0",
-                "client-metadata": json.dumps(
-                    {
-                        "ideType": "IDE_UNSPECIFIED",
-                        "platform": "PLATFORM_UNSPECIFIED",
-                        "pluginType": "GEMINI",
-                    }
-                ),
-            },
-        )
+    def transport(self, ctx: ProviderContext, model: str) -> Transport | dict[str, Any]:
+        project_id = _load_project_id(ctx.data_dir)
+        if not project_id:
+            return Transport(
+                dialect="google-code-assist",
+                base_url=DEFAULT_ENDPOINT,
+                headers=dict(_GEMINI_HEADERS),
+            )
+        return {
+            "dialect": "google-code-assist",
+            "baseUrl": DEFAULT_ENDPOINT,
+            "headers": dict(_GEMINI_HEADERS),
+            "projectId": project_id,
+        }
 
     async def login(self, ctx: ProviderContext) -> Auth:
         client_id, _ = _client_credentials()
@@ -254,8 +264,7 @@ class GeminiCliOAuth(Provider):
         )
 
     async def refresh(self, ctx: ProviderContext, auth: Auth) -> Auth:
-        project_id = _load_project_id(ctx.data_dir)
-        if not project_id:
+        if not _load_project_id(ctx.data_dir):
             raise ValueError("Missing project id")
         refresh_token = (auth.refresh or "").strip()
         if not refresh_token:
