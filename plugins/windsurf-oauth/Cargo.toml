@@ -21,7 +21,7 @@ path = "src/bin/smoke.rs"
 [dependencies]
 async-stream = "0.3"
 async-trait = "0.1"
-covalt-provider-sdk = { git = "https://github.com/sethburkart123/covalt", rev = "6d1670f75ee432430ae984f8df639bd6cb307751" }
+covalt-provider-sdk = { git = "https://github.com/sethburkart123/covalt", rev = "d41910a21290d13cbe9d065c6c9082565efe2ea9" }
 flate2 = "1"
 futures = "0.3"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
