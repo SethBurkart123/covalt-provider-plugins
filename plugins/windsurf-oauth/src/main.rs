@@ -6,13 +6,13 @@ use async_trait::async_trait;
 use covalt_provider::{
     events, method::Method, Auth, Model, Provider, ProviderContext, ProviderError,
 };
-use futures::Stream;
+use futures::{Stream, StreamExt};
 use serde_json::Value;
 use windsurf_provider::auth;
 use windsurf_provider::cloud;
 use windsurf_provider::cloud::chat::{
-    messages_from_json, stream_chat_events, tools_from_json, CloudChatEvent, CloudChatRequest,
-    FinishReason,
+    messages_from_json, stream_chat_events, tools_from_json, ChatHistoryItem, CloudChatEvent,
+    CloudChatRequest, ContentPart, FinishReason,
 };
 use windsurf_provider::models::{list_models, resolve_model};
 
@@ -89,7 +89,22 @@ impl Provider for WindsurfProvider {
             .and_then(|options| options.get("variant"))
             .and_then(Value::as_str)
             .map(str::to_string);
-        let messages = messages_from_json(req.get("messages").unwrap_or(&Value::Null));
+        let mut messages = messages_from_json(req.get("messages").unwrap_or(&Value::Null));
+        if let Some(system) = req
+            .get("system")
+            .and_then(Value::as_str)
+            .filter(|text| !text.is_empty())
+        {
+            messages.insert(
+                0,
+                ChatHistoryItem {
+                    role: "system".to_string(),
+                    content: vec![ContentPart::Text { text: system.to_string() }],
+                    tool_call_id: None,
+                    tool_calls: Vec::new(),
+                },
+            );
+        }
         let tools = tools_from_json(req.get("tools").unwrap_or(&Value::Null));
         let max_output_tokens = req
             .get("options")
@@ -106,7 +121,7 @@ impl Provider for WindsurfProvider {
                     return;
                 }
             };
-            let cloud_events = match stream_chat_events(CloudChatRequest {
+            let mut cloud_events = match stream_chat_events(CloudChatRequest {
                 api_key,
                 api_server_url,
                 inference_server_url,
@@ -121,9 +136,63 @@ impl Provider for WindsurfProvider {
                     return;
                 }
             };
-            for event in map_cloud_events(cloud_events) {
-                yield Ok(event);
+
+            let mut tool_index = 0u32;
+            let mut tool_id_to_index: HashMap<String, u32> = HashMap::new();
+            let mut last_tool_id: Option<String> = None;
+            let mut saw_tool_call = false;
+            let mut finish_reason = FinishReason::Stop;
+
+            while let Some(event) = cloud_events.next().await {
+                let event = match event {
+                    Ok(value) => value,
+                    Err(err) => {
+                        yield Err(ProviderError::Message(err));
+                        return;
+                    }
+                };
+                match event {
+                    CloudChatEvent::Text { text } => yield Ok(events::text(text)),
+                    CloudChatEvent::Reasoning { text } => yield Ok(events::thinking(text)),
+                    CloudChatEvent::ToolCallStart { id, name } => {
+                        saw_tool_call = true;
+                        tool_id_to_index.insert(id.clone(), tool_index);
+                        last_tool_id = Some(id.clone());
+                        yield Ok(events::tool_call_start(id, name, tool_index));
+                        tool_index += 1;
+                    }
+                    CloudChatEvent::ToolCallArgs { args_delta, id } => {
+                        // Windsurf sends arg frames without an id; they belong
+                        // to the most recently started tool call.
+                        let Some(id) = id.or_else(|| last_tool_id.clone()) else {
+                            continue;
+                        };
+                        let index = tool_id_to_index
+                            .get(&id)
+                            .copied()
+                            .unwrap_or(tool_index.saturating_sub(1));
+                        yield Ok(events::tool_call_arg_delta(id, args_delta, index));
+                    }
+                    CloudChatEvent::Finish { reason } => finish_reason = reason,
+                    CloudChatEvent::Usage {
+                        prompt_tokens,
+                        completion_tokens,
+                        ..
+                    } => yield Ok(events::usage(prompt_tokens, completion_tokens, None, None)),
+                }
             }
+
+            for (id, index) in &tool_id_to_index {
+                yield Ok(events::tool_call_end(id.clone(), *index));
+            }
+            let stop_reason = match finish_reason {
+                FinishReason::ToolCalls => "tool_calls",
+                FinishReason::Length => "length",
+                FinishReason::ContentFilter => "content_filter",
+                FinishReason::Stop if saw_tool_call => "tool_calls",
+                FinishReason::Stop => "stop",
+            };
+            yield Ok(events::stop(stop_reason));
         })
     }
 }
@@ -152,57 +221,12 @@ fn credential_api_key(ctx: &ProviderContext) -> Result<String, ProviderError> {
 
 fn credential_api_server(ctx: &ProviderContext) -> String {
     ctx.auth
-        .base_url_override
-        .clone()
+        .extra
+        .get("apiServerUrl")
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
         .unwrap_or_else(|| cloud::default_host().to_string())
-}
-
-fn map_cloud_events(events: Vec<CloudChatEvent>) -> Vec<Value> {
-    let mut out = Vec::new();
-    let mut tool_index = 0u32;
-    let mut tool_id_to_index: HashMap<String, u32> = HashMap::new();
-    let mut saw_tool_call = false;
-    let mut finish_reason = FinishReason::Stop;
-
-    for event in events {
-        match event {
-            CloudChatEvent::Text { text } => out.push(events::text(text)),
-            CloudChatEvent::Reasoning { text } => out.push(events::thinking(text)),
-            CloudChatEvent::ToolCallStart { id, name } => {
-                saw_tool_call = true;
-                tool_id_to_index.insert(id.clone(), tool_index);
-                out.push(events::tool_call_start(id, name, tool_index));
-                tool_index += 1;
-            }
-            CloudChatEvent::ToolCallArgs { args_delta, id } => {
-                let index = id
-                    .as_ref()
-                    .and_then(|value| tool_id_to_index.get(value).copied())
-                    .unwrap_or(tool_index.saturating_sub(1));
-                out.push(events::tool_call_arg_delta(
-                    id.unwrap_or_else(|| "tool".to_string()),
-                    args_delta,
-                    index,
-                ));
-            }
-            CloudChatEvent::Finish { reason } => finish_reason = reason,
-            CloudChatEvent::Usage {
-                prompt_tokens,
-                completion_tokens,
-                ..
-            } => out.push(events::usage(prompt_tokens, completion_tokens, None, None)),
-        }
-    }
-
-    let stop_reason = match finish_reason {
-        FinishReason::ToolCalls => "tool_calls",
-        FinishReason::Length => "length",
-        FinishReason::ContentFilter => "content_filter",
-        FinishReason::Stop if saw_tool_call => "tool_calls",
-        FinishReason::Stop => "stop",
-    };
-    out.push(events::stop(stop_reason));
-    out
 }
 
 covalt_provider::main!(WindsurfProvider);

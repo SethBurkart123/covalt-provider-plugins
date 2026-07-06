@@ -32,7 +32,7 @@
       "id": "windsurf-oauth",
       "pluginId": "windsurf",
       "name": "Windsurf OAuth",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "provider": "windsurf",
       "description": "Cognition (Windsurf) subscription models via OAuth",
       "icon": "windsurf",

@@ -1,6 +1,6 @@
 id: windsurf
 name: Windsurf
-version: 0.1.0
+version: 0.1.1
 entry: target/release/windsurf-provider
 runtime: binary
 icon: windsurf

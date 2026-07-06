@@ -18,7 +18,8 @@ async fn main() {
     let resolved = resolve_model(&model, None).expect("resolve model");
     eprintln!("model={model} uid={}", resolved.model_uid);
 
-    let events = stream_chat_events(CloudChatRequest {
+    use futures::StreamExt;
+    let mut events = stream_chat_events(CloudChatRequest {
         api_key,
         api_server_url,
         inference_server_url,
@@ -33,8 +34,8 @@ async fn main() {
     .await
     .expect("stream chat");
 
-    for event in events {
-        match event {
+    while let Some(event) = events.next().await {
+        match event.expect("chat event") {
             windsurf_provider::cloud::chat::CloudChatEvent::Text { text } => {
                 print!("{text}");
             }

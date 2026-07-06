@@ -99,7 +99,10 @@ struct SessionIds {
 static SESSION_CACHE: LazyLock<Mutex<HashMap<String, SessionIds>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
-pub async fn stream_chat_events(req: CloudChatRequest) -> Result<Vec<CloudChatEvent>, String> {
+pub type CloudChatStream =
+    std::pin::Pin<Box<dyn futures::Stream<Item = Result<CloudChatEvent, String>> + Send>>;
+
+pub async fn stream_chat_events(req: CloudChatRequest) -> Result<CloudChatStream, String> {
     let api_host = normalize_host(if req.api_server_url.is_empty() {
         crate::cloud::auth::default_host()
     } else {
@@ -157,40 +160,49 @@ pub async fn stream_chat_events(req: CloudChatRequest) -> Result<Vec<CloudChatEv
         return Err(format!("GetChatMessage HTTP {status}: {text}"));
     }
 
-    let mut events = Vec::new();
-    let mut buffer = Vec::new();
-    let mut stream = resp.bytes_stream();
-    while let Some(chunk) = stream.next().await {
-        let chunk = chunk.map_err(|err| err.to_string())?;
-        buffer.extend_from_slice(&chunk);
-        while buffer.len() >= 5 {
-            let len = u32::from_be_bytes([buffer[1], buffer[2], buffer[3], buffer[4]]) as usize;
-            if buffer.len() < 5 + len {
-                break;
-            }
-            let frame_bytes = buffer.drain(..5 + len).collect::<Vec<_>>();
-            for frame in parse_connect_frames(&frame_bytes) {
-                if frame.eos {
-                    if !frame.payload.is_empty() {
-                        if let Ok(value) =
-                            serde_json::from_slice::<serde_json::Value>(&frame.payload)
-                        {
-                            if let Some(message) = value
-                                .get("error")
-                                .and_then(|err| err.get("message"))
-                                .and_then(|msg| msg.as_str())
+    Ok(Box::pin(async_stream::stream! {
+        let mut buffer = Vec::new();
+        let mut stream = resp.bytes_stream();
+        while let Some(chunk) = stream.next().await {
+            let chunk = match chunk {
+                Ok(chunk) => chunk,
+                Err(err) => {
+                    yield Err(err.to_string());
+                    return;
+                }
+            };
+            buffer.extend_from_slice(&chunk);
+            while buffer.len() >= 5 {
+                let len = u32::from_be_bytes([buffer[1], buffer[2], buffer[3], buffer[4]]) as usize;
+                if buffer.len() < 5 + len {
+                    break;
+                }
+                let frame_bytes = buffer.drain(..5 + len).collect::<Vec<_>>();
+                for frame in parse_connect_frames(&frame_bytes) {
+                    if frame.eos {
+                        if !frame.payload.is_empty() {
+                            if let Ok(value) =
+                                serde_json::from_slice::<serde_json::Value>(&frame.payload)
                             {
-                                return Err(message.to_string());
+                                if let Some(message) = value
+                                    .get("error")
+                                    .and_then(|err| err.get("message"))
+                                    .and_then(|msg| msg.as_str())
+                                {
+                                    yield Err(message.to_string());
+                                    return;
+                                }
                             }
                         }
+                        continue;
                     }
-                    continue;
+                    for event in decode_chat_frame(&frame.payload) {
+                        yield Ok(event);
+                    }
                 }
-                events.extend(decode_chat_frame(&frame.payload));
             }
         }
-    }
-    Ok(events)
+    }))
 }
 
 struct BuildArgs<'a> {
@@ -512,7 +524,54 @@ pub fn messages_from_json(value: &serde_json::Value) -> Vec<ChatHistoryItem> {
     let Some(items) = value.as_array() else {
         return Vec::new();
     };
-    items.iter().filter_map(parse_message_item).collect()
+    items.iter().flat_map(parse_message_items).collect()
+}
+
+fn parse_message_items(value: &serde_json::Value) -> Vec<ChatHistoryItem> {
+    let Some(item) = parse_message_item(value) else {
+        return Vec::new();
+    };
+    // Chat-format history carries tool calls as content blocks with an inline
+    // output; Windsurf wants assistant tool_calls plus separate tool messages.
+    let mut items = vec![item];
+    let blocks = value
+        .get("content")
+        .and_then(|content| content.as_array())
+        .map(|blocks| blocks.as_slice())
+        .unwrap_or_default();
+    for block in blocks {
+        let Some(obj) = block.as_object() else { continue };
+        if obj.get("type").and_then(|v| v.as_str()) != Some("tool_call") {
+            continue;
+        }
+        let (Some(id), Some(name)) = (
+            obj.get("id").and_then(|v| v.as_str()),
+            obj.get("name").and_then(|v| v.as_str()),
+        ) else {
+            continue;
+        };
+        items[0].tool_calls.push(ToolCall {
+            id: id.to_string(),
+            name: name.to_string(),
+            arguments: obj
+                .get("input")
+                .map(|input| input.to_string())
+                .unwrap_or_else(|| "{}".to_string()),
+        });
+        if let Some(output) = obj.get("output").filter(|v| !v.is_null()) {
+            let text = output
+                .as_str()
+                .map(str::to_string)
+                .unwrap_or_else(|| output.to_string());
+            items.push(ChatHistoryItem {
+                role: "tool".to_string(),
+                content: vec![ContentPart::Text { text }],
+                tool_call_id: Some(id.to_string()),
+                tool_calls: Vec::new(),
+            });
+        }
+    }
+    items
 }
 
 fn parse_message_item(value: &serde_json::Value) -> Option<ChatHistoryItem> {
@@ -565,6 +624,9 @@ fn parse_content(value: &serde_json::Value) -> Vec<ContentPart> {
         serde_json::Value::Array(items) => items
             .iter()
             .filter_map(|item| {
+                if let Some(text) = item.as_str() {
+                    return Some(ContentPart::Text { text: text.to_string() });
+                }
                 let obj = item.as_object()?;
                 match obj.get("type")?.as_str()? {
                     "text" => Some(ContentPart::Text {

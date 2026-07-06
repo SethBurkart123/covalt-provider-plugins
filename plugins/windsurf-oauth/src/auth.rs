@@ -48,9 +48,10 @@ pub async fn login(ctx: &ProviderContext) -> Result<Auth, ProviderError> {
     let registered = register_user(&token).await?;
     Ok(Auth {
         access: registered.api_key,
-        refresh: Some(registered.api_server_url),
+        refresh: None,
         expires_in: None,
         keep_fresh: None,
+        extra: Some(serde_json::json!({ "apiServerUrl": registered.api_server_url })),
     })
 }
 
