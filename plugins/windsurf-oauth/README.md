@@ -8,6 +8,8 @@ Ported from [opencode-windsurf-auth](https://github.com/rsvedant/opencode-windsu
 
 Add this repo as a provider plugin source in Covalt, or install from the official index entry `windsurf-oauth`. The host builds the binary with `cargo build --release` on install.
 
+`covalt-provider-sdk` is pulled from [github.com/sethburkart123/covalt](https://github.com/sethburkart123/covalt) (pinned `rev` in `Cargo.toml`) so the build works no matter where the plugin is installed.
+
 ## Sign in
 
 Settings → Providers → Windsurf → Sign in. Opens the Windsurf browser OAuth flow; credentials are stored encrypted by the host.

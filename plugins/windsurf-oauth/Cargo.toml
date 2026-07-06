@@ -1,3 +1,6 @@
+# Standalone crate: installed copies live outside the Covalt workspace.
+[workspace]
+
 [package]
 name = "windsurf-provider"
 version = "0.1.0"
@@ -18,7 +21,7 @@ path = "src/bin/smoke.rs"
 [dependencies]
 async-stream = "0.3"
 async-trait = "0.1"
-covalt-provider-sdk = { path = "../../../agno-app-electron/crates/covalt-provider-sdk" }
+covalt-provider-sdk = { git = "https://github.com/sethburkart123/covalt", rev = "6d1670f75ee432430ae984f8df639bd6cb307751" }
 flate2 = "1"
 futures = "0.3"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
