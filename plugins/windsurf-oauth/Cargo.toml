@@ -21,8 +21,7 @@ path = "src/bin/smoke.rs"
 [dependencies]
 async-stream = "0.3"
 async-trait = "0.1"
-# TODO(seth): repoint at the covalt git rev that includes Auth.extra once pushed
-covalt-provider-sdk = { path = "../../../agno-app-electron/crates/covalt-provider-sdk" }
+covalt-provider-sdk = { git = "https://github.com/sethburkart123/covalt", rev = "0edbab535c7e5a402e239bfbab5eceaab4613b5e" }
 flate2 = "1"
 futures = "0.3"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
