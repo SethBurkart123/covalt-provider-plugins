@@ -1,6 +1,6 @@
 {
   "name": "Official Covalt Provider Plugins",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "sources": [
     {
       "id": "claude-oauth",
@@ -27,6 +27,19 @@
       "repoUrl": "https://github.com/sethburkart123/covalt-provider-plugins",
       "trackingRef": "main",
       "pluginPath": "plugins/gemini-cli-oauth"
+    },
+    {
+      "id": "windsurf-oauth",
+      "pluginId": "windsurf",
+      "name": "Windsurf OAuth",
+      "version": "0.1.0",
+      "provider": "windsurf",
+      "description": "Cognition (Windsurf) subscription models via OAuth",
+      "icon": "windsurf",
+      "sourceClass": "official",
+      "repoUrl": "https://github.com/sethburkart123/covalt-provider-plugins",
+      "trackingRef": "main",
+      "pluginPath": "plugins/windsurf-oauth"
     }
   ]
 }
