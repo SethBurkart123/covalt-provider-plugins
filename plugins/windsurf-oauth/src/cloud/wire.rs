@@ -92,6 +92,7 @@ pub struct ProtoField {
 pub enum FieldValue {
     Varint(u64),
     Fixed64([u8; 8]),
+    Fixed32([u8; 4]),
     Bytes(Vec<u8>),
 }
 
@@ -144,8 +145,14 @@ pub fn iter_fields(buf: &[u8]) -> impl Iterator<Item = ProtoField> + '_ {
                 if index + 4 > buf.len() {
                     return None;
                 }
+                let mut fixed = [0u8; 4];
+                fixed.copy_from_slice(&buf[index..index + 4]);
                 index += 4;
-                None
+                Some(ProtoField {
+                    num,
+                    wire,
+                    value: FieldValue::Fixed32(fixed),
+                })
             }
             _ => None,
         }

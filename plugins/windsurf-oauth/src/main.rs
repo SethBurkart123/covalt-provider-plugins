@@ -37,8 +37,20 @@ impl Provider for WindsurfProvider {
         ]
     }
 
-    async fn models(&self, _ctx: &ProviderContext) -> Result<Vec<Model>, ProviderError> {
-        Ok(list_models())
+    async fn models(&self, ctx: &ProviderContext) -> Result<Vec<Model>, ProviderError> {
+        let api_key = match credential_api_key(ctx) {
+            Ok(value) => value,
+            Err(_) => return Ok(list_models()),
+        };
+        let api_server_url = credential_api_server(ctx);
+        match cloud::list_catalog_models(&api_key, &api_server_url).await {
+            Ok(models) if !models.is_empty() => Ok(models),
+            Ok(_) => Ok(list_models()),
+            Err(err) => {
+                eprintln!("Windsurf model catalog unavailable: {err}");
+                Ok(list_models())
+            }
+        }
     }
 
     async fn login(&self, ctx: &ProviderContext) -> Result<Auth, ProviderError> {
@@ -64,6 +76,7 @@ impl Provider for WindsurfProvider {
             }
         };
         let api_server_url = credential_api_server(ctx);
+        let inference_server_url = cloud::auth::inference_host_for(&api_server_url);
         let model = req
             .get("model")
             .and_then(Value::as_str)
@@ -96,6 +109,7 @@ impl Provider for WindsurfProvider {
             let cloud_events = match stream_chat_events(CloudChatRequest {
                 api_key,
                 api_server_url,
+                inference_server_url,
                 model_uid: resolved.model_uid,
                 messages,
                 tools,
@@ -115,7 +129,12 @@ impl Provider for WindsurfProvider {
 }
 
 fn credential_api_key(ctx: &ProviderContext) -> Result<String, ProviderError> {
-    if let Some(key) = ctx.auth.api_key.as_deref().filter(|value| !value.is_empty()) {
+    if let Some(key) = ctx
+        .auth
+        .api_key
+        .as_deref()
+        .filter(|value| !value.is_empty())
+    {
         return Ok(key.to_string());
     }
     if let Some(token) = ctx
@@ -171,12 +190,7 @@ fn map_cloud_events(events: Vec<CloudChatEvent>) -> Vec<Value> {
                 prompt_tokens,
                 completion_tokens,
                 ..
-            } => out.push(events::usage(
-                prompt_tokens,
-                completion_tokens,
-                None,
-                None,
-            )),
+            } => out.push(events::usage(prompt_tokens, completion_tokens, None, None)),
         }
     }
 

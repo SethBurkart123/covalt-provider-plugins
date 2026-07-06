@@ -1,6 +1,5 @@
-use windsurf_provider::cloud::chat::{
-    messages_from_json, stream_chat_events, CloudChatRequest,
-};
+use windsurf_provider::cloud::auth::inference_host_for;
+use windsurf_provider::cloud::chat::{messages_from_json, stream_chat_events, CloudChatRequest};
 use windsurf_provider::models::resolve_model;
 
 #[tokio::main]
@@ -14,7 +13,7 @@ async fn main() {
         prompt
     };
 
-    let (api_key, api_server_url) = load_credentials();
+    let (api_key, api_server_url, inference_server_url) = load_credentials();
 
     let resolved = resolve_model(&model, None).expect("resolve model");
     eprintln!("model={model} uid={}", resolved.model_uid);
@@ -22,6 +21,7 @@ async fn main() {
     let events = stream_chat_events(CloudChatRequest {
         api_key,
         api_server_url,
+        inference_server_url,
         model_uid: resolved.model_uid,
         messages: messages_from_json(&serde_json::json!([{
             "role": "user",
@@ -57,16 +57,20 @@ async fn main() {
     println!();
 }
 
-fn load_credentials() -> (String, String) {
+fn load_credentials() -> (String, String, String) {
     if let Ok(api_key) = std::env::var("WINDSURF_API_KEY") {
         let api_server_url = std::env::var("WINDSURF_API_SERVER_URL")
             .unwrap_or_else(|_| "https://server.codeium.com".to_string());
-        return (api_key, api_server_url);
+        let inference_server_url = std::env::var("WINDSURF_INFERENCE_API_SERVER_URL")
+            .unwrap_or_else(|_| inference_host_for(&api_server_url));
+        return (api_key, api_server_url, inference_server_url);
     }
     if let Ok(api_key) = std::env::var("COVALT_WINDSURF_API_KEY") {
         let api_server_url = std::env::var("COVALT_WINDSURF_API_SERVER_URL")
             .unwrap_or_else(|_| "https://server.codeium.com".to_string());
-        return (api_key, api_server_url);
+        let inference_server_url = std::env::var("COVALT_WINDSURF_INFERENCE_API_SERVER_URL")
+            .unwrap_or_else(|_| inference_host_for(&api_server_url));
+        return (api_key, api_server_url, inference_server_url);
     }
     if let Some(path) = opencode_credentials_path() {
         if let Ok(raw) = std::fs::read_to_string(&path) {
@@ -77,8 +81,13 @@ fn load_credentials() -> (String, String) {
                         .and_then(|v| v.as_str())
                         .unwrap_or("https://server.codeium.com")
                         .to_string();
+                    let inference_server_url = value
+                        .get("inferenceApiServerUrl")
+                        .and_then(|v| v.as_str())
+                        .map(str::to_string)
+                        .unwrap_or_else(|| inference_host_for(&api_server_url));
                     eprintln!("loaded credentials from {}", path.display());
-                    return (api_key.to_string(), api_server_url);
+                    return (api_key.to_string(), api_server_url, inference_server_url);
                 }
             }
         }

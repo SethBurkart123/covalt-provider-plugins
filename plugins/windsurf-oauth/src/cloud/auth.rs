@@ -6,6 +6,7 @@ use crate::cloud::metadata::{build_metadata, MetadataInput};
 use crate::cloud::wire::{encode_message, iter_fields, FieldValue};
 
 const DEFAULT_HOST: &str = "https://server.codeium.com";
+const DEFAULT_INFERENCE_HOST: &str = "https://inference.codeium.com";
 
 #[derive(Debug, Clone)]
 pub struct MintedUserJwt {
@@ -164,4 +165,17 @@ pub fn normalize_host(host: &str) -> String {
 
 pub fn default_host() -> &'static str {
     DEFAULT_HOST
+}
+
+pub fn inference_host_for(api_server_url: &str) -> String {
+    let api_host = normalize_host(if api_server_url.is_empty() {
+        DEFAULT_HOST
+    } else {
+        api_server_url
+    });
+    if api_host == DEFAULT_HOST {
+        DEFAULT_INFERENCE_HOST.to_string()
+    } else {
+        api_host
+    }
 }

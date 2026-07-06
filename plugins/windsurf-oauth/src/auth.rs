@@ -26,16 +26,24 @@ pub async fn login(ctx: &ProviderContext) -> Result<Auth, ProviderError> {
         .callback_uri
         .as_deref()
         .ok_or_else(|| ProviderError::Message("login requires host callback URI".into()))?;
-    let state = uuid::Uuid::new_v4().to_string();
-    let url = build_login_url(callback_uri, &state);
+    let expected_state = ctx
+        .options
+        .get("oauthState")
+        .or_else(|| ctx.options.get("oauth_state"))
+        .and_then(|value| value.as_str())
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+    let url = build_login_url(callback_uri, expected_state.as_deref().unwrap_or("pending"));
     let params = ctx.ui().browser(&url).await?;
     let token = extract_firebase_token(&params)?;
-    if params
-        .get("state")
-        .and_then(|value| value.as_str())
-        .is_some_and(|value| value != state)
-    {
-        return Err(ProviderError::Message("OAuth state mismatch".into()));
+    if let Some(expected_state) = expected_state.as_deref() {
+        if params
+            .get("state")
+            .and_then(|value| value.as_str())
+            .is_some_and(|value| value != expected_state)
+        {
+            return Err(ProviderError::Message("OAuth state mismatch".into()));
+        }
     }
     let registered = register_user(&token).await?;
     Ok(Auth {

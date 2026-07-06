@@ -6,14 +6,7 @@ pub struct ResolvedModel {
 
 pub fn list_models() -> Vec<Model> {
     vec![
-        model_entry(
-            "swe-1.6",
-            "SWE 1.6",
-            1_000_000,
-            128_000,
-            &["fast"],
-            "fast",
-        ),
+        model_entry("swe-1.6", "SWE 1.6", 1_000_000, 128_000, &["fast"], "fast"),
         model_entry(
             "claude-opus-4.7",
             "Claude Opus 4.7",
@@ -30,14 +23,7 @@ pub fn list_models() -> Vec<Model> {
             &["none", "low", "medium", "high", "xhigh"],
             "medium",
         ),
-        model_entry(
-            "kimi-k2.6",
-            "Kimi K2.6",
-            262_144,
-            262_144,
-            &[],
-            "",
-        ),
+        model_entry("kimi-k2.6", "Kimi K2.6", 262_144, 262_144, &[], ""),
         model_entry(
             "gemini-3.5-flash",
             "Gemini 3.5 Flash",
@@ -54,14 +40,7 @@ pub fn list_models() -> Vec<Model> {
             &["thinking", "1m", "thinking-1m", "fast", "thinking-fast"],
             "thinking",
         ),
-        model_entry(
-            "deepseek-v4",
-            "DeepSeek V4",
-            1_000_000,
-            384_000,
-            &[],
-            "",
-        ),
+        model_entry("deepseek-v4", "DeepSeek V4", 1_000_000, 384_000, &[], ""),
     ]
 }
 
@@ -100,6 +79,7 @@ fn model_entry(
 }
 
 pub fn resolve_model(model: &str, variant_override: Option<&str>) -> Result<ResolvedModel, String> {
+    let requested = model.trim();
     let (base, inline_variant) = split_model_and_variant(model);
     let variant = variant_override
         .or(inline_variant.as_deref())
@@ -148,7 +128,15 @@ pub fn resolve_model(model: &str, variant_override: Option<&str>) -> Result<Reso
             Some(other) => return Err(format!("Unknown variant for {base}: {other}")),
         },
         "deepseek-v4" | "deepseek-v-4" => "deepseek-v4",
-        other => return Err(format!("Unknown Windsurf model: {other}")),
+        other => {
+            return Ok(ResolvedModel {
+                model_uid: if variant.is_some() {
+                    requested.to_string()
+                } else {
+                    other.to_string()
+                },
+            });
+        }
     };
     Ok(ResolvedModel {
         model_uid: uid.to_string(),

@@ -4,7 +4,7 @@ use std::sync::{LazyLock, Mutex};
 use futures::StreamExt;
 use reqwest::Client;
 
-use crate::cloud::auth::{get_cached_user_jwt, normalize_host};
+use crate::cloud::auth::{get_cached_user_jwt, inference_host_for, normalize_host};
 use crate::cloud::metadata::{build_metadata, MetadataInput};
 use crate::cloud::wire::{
     encode_fixed64_field, encode_message, encode_string, encode_varint_field, frame_connect_stream,
@@ -22,7 +22,9 @@ pub struct ToolDef {
 
 #[derive(Debug, Clone)]
 pub enum ContentPart {
-    Text { text: String },
+    Text {
+        text: String,
+    },
     Image {
         mime_type: String,
         base64_data: String,
@@ -46,11 +48,23 @@ pub struct ToolCall {
 
 #[derive(Debug, Clone)]
 pub enum CloudChatEvent {
-    Text { text: String },
-    Reasoning { text: String },
-    ToolCallStart { id: String, name: String },
-    ToolCallArgs { args_delta: String, id: Option<String> },
-    Finish { reason: FinishReason },
+    Text {
+        text: String,
+    },
+    Reasoning {
+        text: String,
+    },
+    ToolCallStart {
+        id: String,
+        name: String,
+    },
+    ToolCallArgs {
+        args_delta: String,
+        id: Option<String>,
+    },
+    Finish {
+        reason: FinishReason,
+    },
     Usage {
         prompt_tokens: Option<u64>,
         completion_tokens: Option<u64>,
@@ -69,6 +83,7 @@ pub enum FinishReason {
 pub struct CloudChatRequest {
     pub api_key: String,
     pub api_server_url: String,
+    pub inference_server_url: String,
     pub model_uid: String,
     pub messages: Vec<ChatHistoryItem>,
     pub tools: Vec<ToolDef>,
@@ -84,16 +99,20 @@ struct SessionIds {
 static SESSION_CACHE: LazyLock<Mutex<HashMap<String, SessionIds>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
-pub async fn stream_chat_events(
-    req: CloudChatRequest,
-) -> Result<Vec<CloudChatEvent>, String> {
-    let host = normalize_host(if req.api_server_url.is_empty() {
+pub async fn stream_chat_events(req: CloudChatRequest) -> Result<Vec<CloudChatEvent>, String> {
+    let api_host = normalize_host(if req.api_server_url.is_empty() {
         crate::cloud::auth::default_host()
     } else {
         &req.api_server_url
     });
-    let user_jwt = get_cached_user_jwt(&req.api_key, &host).await?;
-    let cache_key = format!("{host}\x1f{}", req.api_key);
+    let inference_server_url = if req.inference_server_url.is_empty() {
+        inference_host_for(&api_host)
+    } else {
+        req.inference_server_url.clone()
+    };
+    let inference_host = normalize_host(&inference_server_url);
+    let user_jwt = get_cached_user_jwt(&req.api_key, &api_host).await?;
+    let cache_key = format!("{inference_host}\x1f{}", req.api_key);
     let session_ids = {
         let mut cache = SESSION_CACHE.lock().expect("session cache");
         cache
@@ -122,7 +141,7 @@ pub async fn stream_chat_events(
     let client = Client::new();
     let resp = client
         .post(format!(
-            "{host}/exa.api_server_pb.ApiServerService/GetChatMessage"
+            "{inference_host}/exa.api_server_pb.ApiServerService/GetChatMessage"
         ))
         .header("Content-Type", "application/connect+proto")
         .header("Connect-Protocol-Version", "1")
@@ -153,7 +172,8 @@ pub async fn stream_chat_events(
             for frame in parse_connect_frames(&frame_bytes) {
                 if frame.eos {
                     if !frame.payload.is_empty() {
-                        if let Ok(value) = serde_json::from_slice::<serde_json::Value>(&frame.payload)
+                        if let Ok(value) =
+                            serde_json::from_slice::<serde_json::Value>(&frame.payload)
                         {
                             if let Some(message) = value
                                 .get("error")
@@ -198,10 +218,7 @@ fn build_get_chat_message_request(args: BuildArgs<'_>) -> Vec<u8> {
     let collapsed = collapse_system_into_user(args.messages);
     let mut parts = vec![encode_message(1, &metadata)];
     for message in collapsed {
-        parts.push(encode_message(
-            3,
-            &encode_chat_message_prompt(&message),
-        ));
+        parts.push(encode_message(3, &encode_chat_message_prompt(&message)));
     }
     parts.push(encode_varint_field(7, 5));
     parts.push(encode_message(
@@ -265,13 +282,10 @@ fn encode_chat_tool_call(tc: &ToolCall) -> Vec<u8> {
 }
 
 fn encode_image_data(mime_type: &str, base64_data: &str) -> Vec<u8> {
-    [
-        encode_string(1, base64_data),
-        encode_string(2, mime_type),
-    ]
-    .into_iter()
-    .flatten()
-    .collect()
+    [encode_string(1, base64_data), encode_string(2, mime_type)]
+        .into_iter()
+        .flatten()
+        .collect()
 }
 
 fn encode_chat_message_prompt(message: &ChatHistoryItem) -> Vec<u8> {
@@ -528,10 +542,7 @@ fn parse_message_item(value: &serde_json::Value) -> Option<ChatHistoryItem> {
                             .to_string(),
                         arguments: tc
                             .get("arguments")
-                            .or_else(|| {
-                                tc.get("function")
-                                    .and_then(|f| f.get("arguments"))
-                            })
+                            .or_else(|| tc.get("function").and_then(|f| f.get("arguments")))
                             .and_then(|v| v.as_str())
                             .unwrap_or("{}")
                             .to_string(),
