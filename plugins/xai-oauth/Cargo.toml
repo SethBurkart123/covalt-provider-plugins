@@ -1,0 +1,27 @@
+# Standalone crate: installed copies live outside the Covalt workspace.
+[workspace]
+
+[package]
+name = "xai-provider"
+version = "0.2.0"
+edition = "2021"
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "xai-provider"
+path = "src/main.rs"
+
+[dependencies]
+async-trait = "0.1"
+base64 = "0.22"
+covalt-provider-sdk = { git = "https://github.com/sethburkart123/covalt", rev = "0edbab535c7e5a402e239bfbab5eceaab4613b5e" }
+rand = "0.8"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+uuid = { version = "1", features = ["v4"] }

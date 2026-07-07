@@ -1,10 +1,12 @@
-# xAI OAuth
+# xAI OAuth (Rust)
 
-Mode A provider plugin for Grok models via xAI OAuth (same flow as the official Grok CLI).
+Mode B provider plugin for Grok models via xAI OAuth (same flow as the official Grok CLI).
 
 ## Install
 
-Install from the official index entry `xai-oauth`, or add this repo as a provider plugin source in Covalt. The host creates a Python venv from `provider.yaml` on install.
+Install from the official index entry `xai-oauth`, or add this repo as a provider plugin source in Covalt. The host builds the binary with `cargo build --release` on install.
+
+`covalt-provider-sdk` is pulled from [github.com/sethburkart123/covalt](https://github.com/sethburkart123/covalt) (pinned `rev` in `Cargo.toml`) so the build works no matter where the plugin is installed.
 
 ## Sign in
 
@@ -28,6 +30,9 @@ No hardcoded model list. IDs are used exactly as returned by each endpoint.
 
 Streaming uses the `openai-responses` dialect.
 
-## Smoke test
+## Local build
 
-After sign-in, pick a model in Settings → Providers and send a chat message with xAI (Grok) selected.
+```bash
+cd plugins/xai-oauth
+cargo build --release
+```
