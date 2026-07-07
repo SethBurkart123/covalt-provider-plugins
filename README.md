@@ -12,6 +12,7 @@ https://raw.githubusercontent.com/sethburkart123/covalt-provider-plugins/main/in
 | `claude-oauth` | `anthropic_oauth` | Python (Mode A) |
 | `gemini-cli-oauth` | `google_gemini_cli` | Python (Mode A) |
 | `windsurf-oauth` | `windsurf` | Rust binary (Mode B) |
+| `xai-oauth` | `xai_oauth` | Python (Mode A) |
 
 Each plugin is **yaml decl + thin Python** (Mode A — Rust dialects stream; plugins mutate per turn):
 - `provider.yaml` — dialect, base URL, headers, OAuth variant, optional `request.system_prepend`
@@ -30,6 +31,6 @@ Each plugin is **yaml decl + thin Python** (Mode A — Rust dialects stream; plu
 
 ## Install from the app
 
-Settings → Provider plugins → refresh the official index → install **Claude OAuth** or **Gemini CLI OAuth**.
+Settings → Provider plugins → refresh the official index → install **Claude OAuth**, **Gemini CLI OAuth**, **Windsurf OAuth**, or **xAI OAuth**.
 
 **Gemini CLI OAuth** needs `GEMINI_CLI_OAUTH_CLIENT_ID` and `GEMINI_CLI_OAUTH_CLIENT_SECRET` in the app environment (public values from [Gemini CLI](https://github.com/google-gemini/gemini-cli); see `plugins/gemini-cli-oauth/README.md`).

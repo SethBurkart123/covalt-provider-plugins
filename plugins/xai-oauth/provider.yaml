@@ -1,0 +1,13 @@
+id: xai_oauth
+name: xAI (Grok)
+version: 0.1.0
+entry: api/provider.py
+runtime: python
+icon: xai
+description: Grok models via xAI OAuth sign-in
+default_enabled: false
+aliases:
+  - xai-oauth
+python:
+  dependencies:
+    - httpx>=0.27.0
