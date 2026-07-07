@@ -1,6 +1,6 @@
 {
   "name": "Official Covalt Provider Plugins",
-  "version": "1.2.6",
+  "version": "1.2.7",
   "sources": [
     {
       "id": "claude-oauth",
@@ -45,7 +45,7 @@
       "id": "xai-oauth",
       "pluginId": "xai_oauth",
       "name": "xAI OAuth",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "provider": "xai_oauth",
       "description": "Grok models via xAI OAuth sign-in",
       "icon": "xai",

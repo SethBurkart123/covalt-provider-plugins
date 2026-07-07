@@ -201,16 +201,23 @@ fn auth_from_token(payload: TokenResponse, token_endpoint: &str) -> Auth {
 }
 
 fn callback_uri(ctx: &ProviderContext) -> Result<String, ProviderError> {
-    if let Some(uri) = ctx
-        .callback_uri
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-    {
-        return Ok(uri.to_string());
-    }
-    let port = ctx.callback_port.unwrap_or(56_121);
+    // xAI's Grok CLI OAuth client only registers loopback URIs ending in /callback.
+    let port = callback_port(ctx);
     Ok(format!("http://127.0.0.1:{port}/callback"))
+}
+
+fn callback_port(ctx: &ProviderContext) -> u16 {
+    if let Some(uri) = ctx.callback_uri.as_deref().map(str::trim).filter(|value| !value.is_empty())
+    {
+        for prefix in ["http://127.0.0.1:", "http://localhost:"] {
+            if let Some(rest) = uri.strip_prefix(prefix) {
+                if let Ok(port) = rest.split('/').next().unwrap_or_default().parse::<u16>() {
+                    return port;
+                }
+            }
+        }
+    }
+    ctx.callback_port.unwrap_or(56_121) as u16
 }
 
 fn pkce() -> (String, String) {
