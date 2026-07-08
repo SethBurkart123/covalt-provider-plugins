@@ -1,13 +1,10 @@
 id: anthropic_oauth
 name: Claude OAuth
-version: 0.1.5
-entry: api/provider.py
-runtime: python
+version: 0.1.6
+entry: target/release/claude-oauth-provider
+runtime: binary
 icon: anthropic
 description: Claude Pro/Max via OAuth sign-in
 default_enabled: false
 aliases:
   - anthropic-oauth
-python:
-  dependencies:
-    - httpx>=0.27.0

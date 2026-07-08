@@ -1,12 +1,12 @@
 {
   "name": "Official Covalt Provider Plugins",
-  "version": "1.2.7",
+  "version": "1.2.8",
   "sources": [
     {
       "id": "claude-oauth",
       "pluginId": "anthropic_oauth",
       "name": "Claude OAuth",
-      "version": "0.1.4",
+      "version": "0.1.6",
       "provider": "anthropic_oauth",
       "description": "Claude Pro/Max via OAuth sign-in",
       "icon": "anthropic",

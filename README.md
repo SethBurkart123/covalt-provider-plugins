@@ -9,23 +9,23 @@ https://raw.githubusercontent.com/sethburkart123/covalt-provider-plugins/main/in
 
 | Plugin | Provider id | Runtime |
 |--------|-------------|---------|
-| `claude-oauth` | `anthropic_oauth` | Python (Mode A) |
-| `gemini-cli-oauth` | `google_gemini_cli` | Python (Mode A) |
-| `windsurf-oauth` | `windsurf` | Rust binary (Mode B) |
-| `xai-oauth` | `xai_oauth` | Rust binary (Mode B) |
+| `claude-oauth` | `anthropic_oauth` | Rust binary |
+| `gemini-cli-oauth` | `google_gemini_cli` | Python |
+| `windsurf-oauth` | `windsurf` | Rust binary |
+| `xai-oauth` | `xai_oauth` | Rust binary |
 
-Each plugin is **yaml decl + thin Python** (Mode A — Rust dialects stream; plugins mutate per turn):
-- `provider.yaml` — dialect, base URL, headers, OAuth variant, optional `request.system_prepend`
-- `api/provider.py` — `PLUGIN = ProviderPlugin(...)` via `covalt.provider_sdk` (`oauth.*`, `prepare`)
+Rust plugins are standalone crates (`provider.yaml` + `src/` binary). The remaining Python plugin is **yaml decl + thin Python**:
+- `provider.yaml` — manifest metadata
+- `api/provider.py` — `PLUGIN = Provider(...)` via `covalt.provider` (`oauth.*`, `prepare`)
 
 ## Structure
 
 - `index.json` — plugin store index (`sources[]` with `repoUrl`, `pluginPath`, `trackingRef`)
-- `plugins/<id>/` — one directory per plugin (`provider.yaml` + `api/provider.py`)
+- `plugins/<id>/` — one directory per plugin (`provider.yaml` + Rust crate or `api/provider.py`)
 
 ## Adding a plugin
 
-1. Create `plugins/<your-plugin-id>/` with `provider.yaml` and `api/provider.py`
+1. Create `plugins/<your-plugin-id>/` with `provider.yaml` and a Rust crate or `api/provider.py`
 2. Add an entry to `index.json` `sources`
 3. Open a pull request
 
