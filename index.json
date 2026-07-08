@@ -6,7 +6,7 @@
       "id": "claude-oauth",
       "pluginId": "anthropic_oauth",
       "name": "Claude OAuth",
-      "version": "0.1.6",
+      "version": "0.1.7",
       "provider": "anthropic_oauth",
       "description": "Claude Pro/Max via OAuth sign-in",
       "icon": "anthropic",

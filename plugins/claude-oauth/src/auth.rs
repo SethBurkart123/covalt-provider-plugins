@@ -37,15 +37,19 @@ pub async fn login(ctx: &ProviderContext) -> Result<Auth, ProviderError> {
     );
 
     let mut show = Map::new();
-    show.insert("note".into(), json!("Paste the authorization code"));
+    show.insert(
+        "note".into(),
+        json!("Paste the authorization code (CODE#STATE from the callback page)"),
+    );
     show.insert("url".into(), json!(auth_url));
     ctx.ui().show(show).await?;
 
-    let code = ctx
+    let pasted = ctx
         .ui()
         .prompt("Paste the authorization code", Some(&auth_url))
         .await?;
-    let payload = exchange_code(&code, &verifier).await?;
+    let (code, state) = parse_authorization_input(&pasted, &verifier)?;
+    let payload = exchange_code(&code, &state, &verifier).await?;
     auth_from_login(payload)
 }
 
@@ -72,7 +76,11 @@ pub async fn refresh(_ctx: &ProviderContext, auth: &Auth) -> Result<Auth, Provid
     })
 }
 
-async fn exchange_code(code: &str, verifier: &str) -> Result<TokenResponse, ProviderError> {
+async fn exchange_code(
+    code: &str,
+    state: &str,
+    verifier: &str,
+) -> Result<TokenResponse, ProviderError> {
     let client = Client::new();
     let resp = client
         .post(TOKEN_URL)
@@ -80,8 +88,8 @@ async fn exchange_code(code: &str, verifier: &str) -> Result<TokenResponse, Prov
         .json(&json!({
             "grant_type": "authorization_code",
             "client_id": OAUTH_CLIENT_ID,
-            "code": code.trim(),
-            "state": verifier,
+            "code": code,
+            "state": state,
             "redirect_uri": REDIRECT_URI,
             "code_verifier": verifier,
         }))
@@ -90,6 +98,74 @@ async fn exchange_code(code: &str, verifier: &str) -> Result<TokenResponse, Prov
         .await
         .map_err(|err| ProviderError::Message(err.to_string()))?;
     parse_token_response(resp).await
+}
+
+fn parse_authorization_input(
+    pasted: &str,
+    verifier: &str,
+) -> Result<(String, String), ProviderError> {
+    let trimmed = pasted.trim();
+    if trimmed.is_empty() {
+        return Err(ProviderError::Message("Missing authorization code".into()));
+    }
+
+    let (code, state) = if let Some(query) = trimmed.split('?').nth(1) {
+        let (code, state) = parse_query_params(query);
+        if code.is_some() {
+            (code, state)
+        } else {
+            split_code_state(trimmed)
+        }
+    } else if trimmed.contains('=') {
+        let (code, state) = parse_query_params(trimmed);
+        if code.is_some() {
+            (code, state)
+        } else {
+            split_code_state(trimmed)
+        }
+    } else {
+        split_code_state(trimmed)
+    };
+
+    let code = code.filter(|value| !value.is_empty()).ok_or_else(|| {
+        ProviderError::Message(
+            "Missing authorization code — paste the full CODE#STATE from the callback page".into(),
+        )
+    })?;
+    let state = state
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| verifier.to_string());
+    if state != verifier {
+        return Err(ProviderError::Message(
+            "OAuth state mismatch — start sign-in again and paste a fresh code".into(),
+        ));
+    }
+    Ok((code, state))
+}
+
+fn split_code_state(input: &str) -> (Option<String>, Option<String>) {
+    if let Some((code_part, state_part)) = input.split_once('#') {
+        let code = (!code_part.is_empty()).then(|| code_part.to_string());
+        let state = (!state_part.is_empty()).then(|| state_part.to_string());
+        return (code, state);
+    }
+    (Some(input.to_string()), None)
+}
+
+fn parse_query_params(input: &str) -> (Option<String>, Option<String>) {
+    let mut code = None;
+    let mut state = None;
+    for pair in input.split('&') {
+        let Some((key, value)) = pair.split_once('=') else {
+            continue;
+        };
+        match key {
+            "code" if !value.is_empty() => code = Some(value.to_string()),
+            "state" if !value.is_empty() => state = Some(value.to_string()),
+            _ => {}
+        }
+    }
+    (code, state)
 }
 
 async fn refresh_tokens(refresh_token: &str) -> Result<TokenResponse, ProviderError> {
@@ -170,4 +246,42 @@ fn percent_encode(value: &str) -> String {
             _ => format!("%{byte:02X}"),
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn splits_code_and_state_from_hash_format() {
+        let (code, state) =
+            parse_authorization_input("abc123#verifier-state", "verifier-state").expect("parse");
+        assert_eq!(code, "abc123");
+        assert_eq!(state, "verifier-state");
+    }
+
+    #[test]
+    fn accepts_code_only_and_falls_back_to_verifier_state() {
+        let (code, state) = parse_authorization_input("abc123", "verifier-state").expect("parse");
+        assert_eq!(code, "abc123");
+        assert_eq!(state, "verifier-state");
+    }
+
+    #[test]
+    fn rejects_state_mismatch() {
+        let err = parse_authorization_input("abc123#wrong-state", "verifier-state")
+            .expect_err("mismatch");
+        assert!(err.to_string().contains("state mismatch"));
+    }
+
+    #[test]
+    fn parses_code_from_query_string() {
+        let (code, state) = parse_authorization_input(
+            "https://console.anthropic.com/oauth/code/callback?code=abc123&state=verifier-state",
+            "verifier-state",
+        )
+        .expect("parse");
+        assert_eq!(code, "abc123");
+        assert_eq!(state, "verifier-state");
+    }
 }
