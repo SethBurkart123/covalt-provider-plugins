@@ -9,10 +9,10 @@ https://raw.githubusercontent.com/sethburkart123/covalt-provider-plugins/main/in
 
 | Plugin | Provider id | Runtime |
 |--------|-------------|---------|
-| `claude-oauth` | `anthropic_oauth` | Rust binary |
-| `gemini-cli-oauth` | `google_gemini_cli` | Python |
+| `claude-oauth` | `anthropic-oauth` | Rust binary |
+| `gemini-cli-oauth` | `google-gemini-cli` | Python |
 | `windsurf-oauth` | `windsurf` | Rust binary |
-| `xai-oauth` | `xai_oauth` | Rust binary |
+| `xai-oauth` | `xai-oauth` | Rust binary |
 
 Rust plugins are standalone crates (`provider.yaml` + `src/` binary). The remaining Python plugin is **yaml decl + thin Python**:
 - `provider.yaml` — manifest metadata

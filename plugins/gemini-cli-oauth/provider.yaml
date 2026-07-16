@@ -1,13 +1,13 @@
-id: google_gemini_cli
+id: google-gemini-cli
 name: Gemini CLI OAuth
-version: 0.1.4
+version: 0.1.5
 entry: api/provider.py
 runtime: python
 icon: google-gemini-cli
 description: Cloud Code Assist Gemini models via OAuth
 default_enabled: false
 aliases:
-  - google-gemini-cli
+  - google_gemini_cli
 python:
   dependencies:
     - httpx>=0.27.0

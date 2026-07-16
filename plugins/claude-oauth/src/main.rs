@@ -12,7 +12,7 @@ struct ClaudeOAuthProvider;
 #[async_trait]
 impl Provider for ClaudeOAuthProvider {
     fn id(&self) -> &str {
-        "anthropic_oauth"
+        "anthropic-oauth"
     }
 
     fn name(&self) -> &str {

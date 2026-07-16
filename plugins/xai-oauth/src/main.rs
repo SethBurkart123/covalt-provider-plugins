@@ -16,7 +16,7 @@ struct XaiOAuthProvider;
 #[async_trait]
 impl Provider for XaiOAuthProvider {
     fn id(&self) -> &str {
-        "xai_oauth"
+        "xai-oauth"
     }
 
     fn name(&self) -> &str {

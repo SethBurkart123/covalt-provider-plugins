@@ -203,7 +203,7 @@ async def _discover_project(access_token: str) -> str:
 
 
 class GeminiCliOAuth(Provider):
-    id = "google_gemini_cli"
+    id = "google-gemini-cli"
     name = "Gemini CLI OAuth"
 
     def transport(self, ctx: ProviderContext, model: str) -> Transport | dict[str, Any]:

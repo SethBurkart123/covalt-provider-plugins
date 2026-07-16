@@ -1,10 +1,10 @@
-id: xai_oauth
+id: xai-oauth
 name: xAI (Grok)
-version: 0.2.1
+version: 0.2.2
 entry: target/release/xai-provider
 runtime: binary
 icon: xai
 description: Grok models via xAI OAuth sign-in
 default_enabled: false
 aliases:
-  - xai-oauth
+  - xai_oauth
