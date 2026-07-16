@@ -14,7 +14,7 @@ https://raw.githubusercontent.com/sethburkart123/covalt-provider-plugins/main/in
 | `windsurf-oauth` | `windsurf` | Rust binary |
 | `xai-oauth` | `xai-oauth` | Rust binary |
 
-Rust plugins are standalone crates (`provider.yaml` + `src/` binary). The remaining Python plugin is **yaml decl + thin Python**:
+Rust plugins are standalone crates (`provider.yaml` + `Cargo.toml` + committed `Cargo.lock` + `src/` binary). Covalt Desktop requires `Cargo.lock` at the plugin root for reproducible `cargo build --release` on install. The remaining Python plugin is **yaml decl + thin Python**:
 - `provider.yaml` — manifest metadata
 - `api/provider.py` — `PLUGIN = Provider(...)` via `covalt.provider` (`oauth.*`, `prepare`)
 
@@ -26,8 +26,9 @@ Rust plugins are standalone crates (`provider.yaml` + `src/` binary). The remain
 ## Adding a plugin
 
 1. Create `plugins/<your-plugin-id>/` with `provider.yaml` and a Rust crate or `api/provider.py`
-2. Add an entry to `index.json` `sources`
-3. Open a pull request
+2. For Rust plugins, run `cargo generate-lockfile` in the plugin directory and commit `Cargo.lock`
+3. Add an entry to `index.json` `sources`
+4. Open a pull request
 
 ## Install from the app
 
