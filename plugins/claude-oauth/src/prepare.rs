@@ -26,10 +26,7 @@ fn prepend_system(mut req: Value) -> Value {
     let Some(list) = blocks.as_array_mut() else {
         return req;
     };
-    list.insert(
-        0,
-        json!({ "type": "text", "text": SYSTEM_PREPEND }),
-    );
+    list.insert(0, json!(SYSTEM_PREPEND));
     req
 }
 
@@ -182,10 +179,7 @@ mod tests {
     fn prepends_system_block() {
         let req = json!({ "model": "claude-sonnet-4-20250514" });
         let prepared = prepare(req);
-        assert_eq!(
-            prepared["systemBlocks"][0],
-            json!({ "type": "text", "text": SYSTEM_PREPEND })
-        );
+        assert_eq!(prepared["systemBlocks"][0], json!(SYSTEM_PREPEND));
     }
 
     #[test]
