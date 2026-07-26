@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
 use async_trait::async_trait;
-use claude_oauth_provider::{auth, prepare};
+use claude_oauth_provider::{auth, models, prepare};
 use covalt_provider::{
-    method::Method, Auth, Provider, ProviderContext, ProviderError, Transport,
+    method::Method, Auth, Model, Provider, ProviderContext, ProviderError, Transport,
 };
 use serde_json::Value;
 
@@ -21,11 +21,25 @@ impl Provider for ClaudeOAuthProvider {
 
     fn implements(&self) -> &'static [Method] {
         &[
+            Method::ModelsList,
             Method::Transport,
             Method::Prepare,
             Method::Login,
             Method::Refresh,
         ]
+    }
+
+    async fn models(&self, ctx: &ProviderContext) -> Result<Vec<Model>, ProviderError> {
+        let Some(token) = ctx
+            .auth
+            .access_token
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        else {
+            return Ok(Vec::new());
+        };
+        models::list_models(token).await
     }
 
     async fn transport(
@@ -53,7 +67,14 @@ impl Provider for ClaudeOAuthProvider {
         })
     }
 
-    async fn prepare(&self, _ctx: &ProviderContext, req: Value) -> Result<Value, ProviderError> {
+    async fn prepare(&self, ctx: &ProviderContext, mut req: Value) -> Result<Value, ProviderError> {
+        if let Some(req) = req.as_object_mut() {
+            if let Some(model) = &ctx.model {
+                req.entry("model").or_insert_with(|| model.clone().into());
+            }
+            req.entry("options")
+                .or_insert_with(|| ctx.options.clone().into());
+        }
         Ok(prepare::prepare(req))
     }
 

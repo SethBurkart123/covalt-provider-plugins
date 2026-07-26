@@ -97,7 +97,7 @@ async fn exchange_code(
         .send()
         .await
         .map_err(|err| ProviderError::Message(err.to_string()))?;
-    parse_token_response(resp).await
+    parse_token_response(resp, false).await
 }
 
 fn parse_authorization_input(
@@ -182,16 +182,22 @@ async fn refresh_tokens(refresh_token: &str) -> Result<TokenResponse, ProviderEr
         .send()
         .await
         .map_err(|err| ProviderError::Message(err.to_string()))?;
-    parse_token_response(resp).await
+    parse_token_response(resp, true).await
 }
 
-async fn parse_token_response(resp: reqwest::Response) -> Result<TokenResponse, ProviderError> {
+async fn parse_token_response(
+    resp: reqwest::Response,
+    refreshing: bool,
+) -> Result<TokenResponse, ProviderError> {
     let status = resp.status();
     let text = resp
         .text()
         .await
         .map_err(|err| ProviderError::Message(err.to_string()))?;
     if !status.is_success() {
+        if refreshing && matches!(status.as_u16(), 400 | 401) {
+            return Err(ProviderError::Message(format!("AuthExpired: {text}")));
+        }
         return Err(ProviderError::Message(text));
     }
     let payload: TokenResponse = serde_json::from_str(&text)
