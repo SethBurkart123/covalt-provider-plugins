@@ -1,6 +1,6 @@
 id: anthropic-oauth
 name: Claude OAuth
-version: 0.1.9
+version: 0.1.10
 entry: target/release/claude-oauth-provider
 runtime: binary
 icon: anthropic

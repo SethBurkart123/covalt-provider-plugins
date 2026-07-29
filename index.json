@@ -1,12 +1,12 @@
 {
   "name": "Official Covalt Provider Plugins",
-  "version": "1.2.10",
+  "version": "1.2.11",
   "sources": [
     {
       "id": "claude-oauth",
       "pluginId": "anthropic-oauth",
       "name": "Claude OAuth",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "provider": "anthropic-oauth",
       "description": "Claude Pro/Max via OAuth sign-in",
       "icon": "anthropic",
@@ -32,7 +32,7 @@
       "id": "windsurf-oauth",
       "pluginId": "windsurf",
       "name": "Windsurf OAuth",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "provider": "windsurf",
       "description": "Cognition (Windsurf) subscription models via OAuth",
       "icon": "windsurf",
@@ -45,7 +45,7 @@
       "id": "xai-oauth",
       "pluginId": "xai-oauth",
       "name": "xAI OAuth",
-      "version": "0.2.2",
+      "version": "0.2.3",
       "provider": "xai-oauth",
       "description": "Grok models via xAI OAuth sign-in",
       "icon": "xai",

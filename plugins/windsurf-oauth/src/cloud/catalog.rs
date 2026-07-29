@@ -283,6 +283,7 @@ fn model_from_config(config: CatalogConfig) -> Option<Model> {
         tags,
         details,
         controls: Vec::new(),
+        ..Default::default()
     })
 }
 

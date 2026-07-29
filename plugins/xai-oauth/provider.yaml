@@ -1,6 +1,6 @@
 id: xai-oauth
 name: xAI (Grok)
-version: 0.2.2
+version: 0.2.3
 entry: target/release/xai-provider
 runtime: binary
 icon: xai

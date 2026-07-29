@@ -109,6 +109,7 @@ fn model_from_api(entry: ApiModel) -> Model {
         pricing: None,
         tags: Vec::new(),
         details,
+        ..Default::default()
     }
 }
 

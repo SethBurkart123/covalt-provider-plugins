@@ -3,7 +3,7 @@
 
 [package]
 name = "windsurf-provider"
-version = "0.1.0"
+version = "0.1.2"
 edition = "2021"
 publish = false
 
@@ -21,7 +21,7 @@ path = "src/bin/smoke.rs"
 [dependencies]
 async-stream = "0.3"
 async-trait = "0.1"
-covalt-provider-sdk = { git = "https://github.com/sethburkart123/covalt", rev = "0edbab535c7e5a402e239bfbab5eceaab4613b5e" }
+covalt-provider-sdk = { git = "https://github.com/sethburkart123/covalt", rev = "955fe043aaedb927697fac4121c54eab92047acc" }
 flate2 = "1"
 futures = "0.3"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }

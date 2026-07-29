@@ -145,7 +145,7 @@ dependencies = [
 
 [[package]]
 name = "claude-oauth-provider"
-version = "0.1.7"
+version = "0.1.10"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -161,7 +161,7 @@ dependencies = [
 [[package]]
 name = "covalt-codec"
 version = "0.1.0"
-source = "git+https://github.com/sethburkart123/covalt?rev=0edbab535c7e5a402e239bfbab5eceaab4613b5e#0edbab535c7e5a402e239bfbab5eceaab4613b5e"
+source = "git+https://github.com/sethburkart123/covalt?rev=955fe043aaedb927697fac4121c54eab92047acc#955fe043aaedb927697fac4121c54eab92047acc"
 dependencies = [
  "covalt-spec",
  "prost",
@@ -172,7 +172,7 @@ dependencies = [
 [[package]]
 name = "covalt-provider-sdk"
 version = "0.1.0"
-source = "git+https://github.com/sethburkart123/covalt?rev=0edbab535c7e5a402e239bfbab5eceaab4613b5e#0edbab535c7e5a402e239bfbab5eceaab4613b5e"
+source = "git+https://github.com/sethburkart123/covalt?rev=955fe043aaedb927697fac4121c54eab92047acc#955fe043aaedb927697fac4121c54eab92047acc"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -190,7 +190,7 @@ dependencies = [
 [[package]]
 name = "covalt-spec"
 version = "0.1.0"
-source = "git+https://github.com/sethburkart123/covalt?rev=0edbab535c7e5a402e239bfbab5eceaab4613b5e#0edbab535c7e5a402e239bfbab5eceaab4613b5e"
+source = "git+https://github.com/sethburkart123/covalt?rev=955fe043aaedb927697fac4121c54eab92047acc#955fe043aaedb927697fac4121c54eab92047acc"
 dependencies = [
  "pbjson",
  "pbjson-build",

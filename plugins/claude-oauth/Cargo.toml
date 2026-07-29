@@ -3,7 +3,7 @@
 
 [package]
 name = "claude-oauth-provider"
-version = "0.1.7"
+version = "0.1.10"
 edition = "2021"
 publish = false
 
@@ -17,7 +17,7 @@ path = "src/main.rs"
 [dependencies]
 async-trait = "0.1"
 base64 = "0.22"
-covalt-provider-sdk = { git = "https://github.com/sethburkart123/covalt", rev = "0edbab535c7e5a402e239bfbab5eceaab4613b5e" }
+covalt-provider-sdk = { git = "https://github.com/sethburkart123/covalt", rev = "955fe043aaedb927697fac4121c54eab92047acc" }
 rand = "0.8"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 serde = { version = "1", features = ["derive"] }

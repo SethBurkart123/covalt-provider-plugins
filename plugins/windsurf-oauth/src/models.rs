@@ -65,6 +65,7 @@ fn model_entry(
             "Cognition (Windsurf)".to_string(),
         )]),
         controls: Vec::new(),
+        ..Default::default()
     };
     if !variants.is_empty() {
         model.controls.push(Control::segmented(

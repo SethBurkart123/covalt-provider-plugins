@@ -188,6 +188,7 @@ fn model_from_api_entry(entry: &Value) -> Option<Model> {
         tags,
         details: HashMap::from([("Provider".into(), "xAI".into())]),
         controls: reasoning_controls(model_id),
+        ..Default::default()
     })
 }
 
@@ -251,6 +252,7 @@ fn model_from_cli_entry(entry: &Value) -> Option<Model> {
         tags,
         details,
         controls: reasoning_controls(model_id),
+        ..Default::default()
     })
 }
 
